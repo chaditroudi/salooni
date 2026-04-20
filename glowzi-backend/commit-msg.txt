@@ -1,0 +1,17 @@
+docs(identity): rewrite IDENTITY-SERVICE-DOCS.md as pre-production technical document
+
+Replace the 2651-line outdated documentation with a comprehensive 484-line
+pre-production technical document covering:
+
+- Service overview and hexagonal architecture layers
+- Complete API reference (7 endpoints) with validation rules
+- Security model (OAuth2/Keycloak authentication flow)
+- Database schema (Flyway migrations V1-V4)
+- Keycloak integration details
+- Configuration reference (application.yml + Docker env vars)
+- Test suite overview (unit, integration, architecture tests)
+- Deployment guide (local + Docker)
+- Full file structure map
+- Pre-production changelog
+
+Co-authored-by:  CHADI TROUDI

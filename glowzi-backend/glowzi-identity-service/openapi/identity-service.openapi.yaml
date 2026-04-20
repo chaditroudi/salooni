@@ -1,0 +1,409 @@
+openapi: 3.0.3
+info:
+  title: Glowzi Identity Service API
+  version: 1.0.0
+  description: |
+    Authentication and identity API for the Glowzi platform.
+
+    This specification documents the implemented `/auth` endpoints in the
+    Spring Boot identity service. The service delegates token issuance and
+    credential management to Keycloak and stores application profile data in
+    PostgreSQL.
+servers:
+  - url: http://localhost:8081
+    description: Local development
+tags:
+  - name: Authentication
+    description: Registration, login, refresh, logout, and password management
+  - name: Profile
+    description: Authenticated identity and profile lookup
+security:
+  - bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a new user
+      description: Creates a user in Keycloak, stores the local profile, and returns a token pair.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+            examples:
+              customer:
+                value:
+                  fullName: Ahmed Ali
+                  phone: "+966501234567"
+                  password: SecurePass1
+                  role: CUSTOMER
+                  preferredLanguage: en
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation or domain error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Identity provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Log in
+      description: Authenticates the user against Keycloak using the phone number as username.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              default:
+                value:
+                  phone: "+966501234567"
+                  password: SecurePass1
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Identity provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh tokens
+      description: Exchanges a refresh token for a fresh access token and refresh token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Refresh successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Refresh token invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Identity provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/validate:
+    get:
+      tags: [Profile]
+      summary: Validate bearer token
+      description: Returns the authenticated user's minimal identity payload for service-to-service or gateway use.
+      responses:
+        '200':
+          description: Token valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '401':
+          description: Missing, invalid, or expired bearer token
+  /auth/me:
+    get:
+      tags: [Profile]
+      summary: Get current user profile
+      description: Returns the local profile associated with the JWT subject.
+      responses:
+        '200':
+          description: Profile returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          description: Missing, invalid, or expired bearer token
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout
+      description: |
+        Accepts a refresh token and returns `204 No Content`.
+
+        Important: the current backend implementation does not yet perform real
+        Keycloak token/session revocation, so clients must clear stored tokens
+        locally and should not assume immediate server-side invalidation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '204':
+          description: Logout request accepted
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Missing or invalid bearer token, or invalid credentials during provider interaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Identity provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/change-password:
+    post:
+      tags: [Authentication]
+      summary: Change password
+      description: Verifies the old password by authenticating against Keycloak, then resets the password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Password changed
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Missing or invalid bearer token, or old password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Identity provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Keycloak-issued access token
+  schemas:
+    UserRole:
+      type: string
+      enum: [CUSTOMER, PROVIDER, ADMIN]
+    RegisterUserRequest:
+      type: object
+      required: [fullName, phone, password, role]
+      properties:
+        fullName:
+          type: string
+          maxLength: 100
+          example: Ahmed Ali
+        phone:
+          type: string
+          pattern: ^\+[1-9]\d{6,14}$
+          example: "+966501234567"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 64
+          pattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$
+          format: password
+          example: SecurePass1
+        role:
+          $ref: '#/components/schemas/UserRole'
+        preferredLanguage:
+          type: string
+          nullable: true
+          example: en
+    LoginRequest:
+      type: object
+      required: [phone, password]
+      properties:
+        phone:
+          type: string
+          pattern: ^\+[1-9]\d{6,14}$
+          example: "+966501234567"
+        password:
+          type: string
+          format: password
+          example: SecurePass1
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          example: eyJ-refresh-token
+    LogoutRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          example: eyJ-refresh-token
+    ChangePasswordRequest:
+      type: object
+      required: [oldPassword, newPassword]
+      properties:
+        oldPassword:
+          type: string
+          format: password
+          example: SecurePass1
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 64
+          pattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$
+          format: password
+          example: NewSecurePass2
+    AuthResponse:
+      type: object
+      required: [userId, role, accessToken, refreshToken, expiresIn]
+      properties:
+        userId:
+          type: integer
+          format: int64
+          example: 1
+        role:
+          $ref: '#/components/schemas/UserRole'
+        accessToken:
+          type: string
+          example: eyJhbGciOi...
+        refreshToken:
+          type: string
+          example: eyJ-refresh...
+        expiresIn:
+          type: integer
+          format: int64
+          description: Access token lifetime in seconds
+          example: 300
+    TokenResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          example: eyJ-new-access...
+        refreshToken:
+          type: string
+          example: eyJ-new-refresh...
+        expiresIn:
+          type: integer
+          format: int64
+          example: 300
+    ValidateResponse:
+      type: object
+      required: [userId, role, phone]
+      properties:
+        userId:
+          type: integer
+          format: int64
+          example: 1
+        role:
+          $ref: '#/components/schemas/UserRole'
+        phone:
+          type: string
+          example: "+966501234567"
+    UserProfileResponse:
+      type: object
+      required: [userId, fullName, phone, role]
+      properties:
+        userId:
+          type: integer
+          format: int64
+          example: 1
+        fullName:
+          type: string
+          example: Ahmed Ali
+        phone:
+          type: string
+          example: "+966501234567"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        preferredLanguage:
+          type: string
+          nullable: true
+          example: en
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Invalid credentials
+    ValidationErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Validation failed
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            phone: Phone must be in E.164 format (e.g. +966501234567)
+            password: Password must contain at least one uppercase letter, one lowercase letter, and one digit

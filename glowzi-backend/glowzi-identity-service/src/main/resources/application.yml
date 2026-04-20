@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: identity-service
+  datasource:
+    url: jdbc:postgresql://localhost:5433/identity_db
+    username: app
+    password: app
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9090/realms/glowzi
+
+server:
+  port: 8081
+
+# Keycloak Admin API config
+keycloak:
+  base-url: http://localhost:9090
+  realm: glowzi
+  client-id: glowzi-app
+  client-secret: glowzi-app-secret
+  admin:
+    username: admin
+    password: admin
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# CORS configuration (comma-separated origins)
+cors:
+  allowed-origins: http://localhost:3000,http://localhost:5173,http://localhost:8081,http://localhost:8082,http://10.0.2.2:8081
+
+logging:
+  level:
+    com.glowzi.identity.infrastructure.security.KeycloakUserService: DEBUG
+    com.glowzi.identity.application: DEBUG
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  info:
+    title: Glowzi Identity Service
+    version: 1.0.0
+    description: Authentication and user management API for Glowzi salon booking platform
